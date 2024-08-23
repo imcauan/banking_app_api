@@ -18,8 +18,9 @@ model User {
   name           String
   email          String        @unique
   password       String
+  image          String?
   transactions   Transaction[]
-  credit_cards   CreditCard[]
+  cards          cards[]
   balance        Int           @default(0)
   credit_limit   Int           @default(0)
   monthly_budget Int           @default(0)
@@ -36,23 +37,23 @@ model Transaction {
   user      User     @relation(fields: [to], references: [id])
   type      Int
   value     Int
-  image     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("transactions")
 }
 
-model CreditCard {
+model cards {
   id           String   @id @default(uuid())
   number       BigInt
   cvv          Int
   credit_limit Int      @default(0)
+  type         Int
   owner_id     String
   flag         String
   user         User     @relation(fields: [owner_id], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@map("credit_cards")
+  @@map("cards")
 }
