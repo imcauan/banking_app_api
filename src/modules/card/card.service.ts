@@ -12,9 +12,10 @@ export class CardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateCardDto) {
-    if (
-      (await this.prisma.cards.count({ where: { number: data.number } })) > 0
-    ) {
+    const cardExists = await this.prisma.cards.findFirst({
+      where: { number: data.number },
+    });
+    if (cardExists) {
       throw new ConflictException('Card already exists!');
     }
 
@@ -60,6 +61,7 @@ export class CardService {
   }
 
   async delete(id: string) {
+    console.log(id);
     const card = await this.findOne(id);
 
     try {
@@ -75,5 +77,17 @@ export class CardService {
     }
 
     return false;
+  }
+
+  async getUserCards(owner_id: string) {
+    try {
+      return this.prisma.cards.findMany({
+        where: {
+          owner_id,
+        },
+      });
+    } catch (error) {
+      throw new BadRequestException(error);
+    }
   }
 }
