@@ -10,7 +10,6 @@ import { PrismaService } from 'src/infra/prisma/Prisma.service';
 import { CreateTransactionDto } from './dtos/create-transaction.dto';
 import { UpdateTransactionDto } from './dtos/update-transaction.dto';
 import { UserService } from '../user/user.service';
-import { TransactionType } from './enums/transaction-type.enum';
 
 @Injectable()
 export class TransactionService {
@@ -21,10 +20,12 @@ export class TransactionService {
   ) {}
 
   async create(data: CreateTransactionDto): Promise<void> {
-    const targetUser = await this.userService.findOne(data.to);
-    const fromUser = await this.userService.findOne(data.from);
+    const receiverUser = await this.userService.findOne(data.from);
+    const senderUser = await this.prisma.user.findFirst({
+      where: { email: data.to },
+    });
 
-    if (data.value > fromUser.balance) {
+    if (data.value > receiverUser.balance) {
       throw new ForbiddenException(
         'The value cannot be bigger than your balance.',
       );
@@ -32,30 +33,24 @@ export class TransactionService {
 
     await this.prisma.transaction.create({
       data: {
-        from: data.from,
-        to: data.to,
-        type: data.type,
+        senderId: receiverUser.id,
+        receiverId: senderUser.id,
+        type: 1,
         value: data.value,
       },
     });
 
     await this.prisma.user.update({
-      where: { id: targetUser.id },
+      where: { id: receiverUser.id },
       data: {
-        balance:
-          data.type === TransactionType.DEPOSIT
-            ? (targetUser.balance -= data.value)
-            : (targetUser.balance += data.value),
+        balance: (receiverUser.balance -= data.value),
       },
     });
 
     await this.prisma.user.update({
-      where: { id: fromUser.id },
+      where: { id: senderUser.id },
       data: {
-        balance:
-          data.type === TransactionType.DEPOSIT
-            ? (fromUser.balance -= data.value)
-            : (fromUser.balance += data.value),
+        balance: (senderUser.balance += data.value),
       },
     });
   }
@@ -84,6 +79,29 @@ export class TransactionService {
     }
   }
 
+  async getUserTransactions(id: string) {
+    try {
+      const transactions = await this.prisma.transaction.findMany({
+        include: {
+          sender: true,
+          receiver: true,
+        },
+      });
+
+      for (const transaction of transactions) {
+        if (transaction.senderId !== id && transaction.receiverId !== id) {
+          throw new ForbiddenException(
+            'You are not allowed to see this transaction.',
+          );
+        }
+      }
+
+      return transactions;
+    } catch (error) {
+      throw new BadRequestException(error);
+    }
+  }
+
   async update(id: string, data: UpdateTransactionDto) {
     const transaction = await this.findOne(id);
 
@@ -91,9 +109,8 @@ export class TransactionService {
       await this.prisma.transaction.update({
         where: { id: transaction.id },
         data: {
-          from: data.from,
-          to: data.to,
-          type: data.type,
+          senderId: data.from,
+          receiverId: data.to,
           value: data.value,
         },
       });
