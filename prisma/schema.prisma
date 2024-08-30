@@ -14,38 +14,43 @@ datasource db {
 }
 
 model User {
-  id             String        @id @default(uuid())
-  name           String
-  email          String        @unique
-  password       String
-  image          String?
-  transactions   Transaction[]
-  cards          cards[]
-  balance        Int           @default(0)
-  credit_limit   Int           @default(0)
-  monthly_budget Int           @default(0)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id       String  @id @default(uuid())
+  name     String
+  email    String  @unique
+  password String
+  image    String?
+  cards    cards[]
+
+  sentTransactions     Transaction[] @relation("sender")
+  receivedTransactions Transaction[] @relation("receiver")
+
+  balance        Int      @default(0)
+  credit_limit   Int      @default(0)
+  monthly_budget Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@map("users")
 }
 
 model Transaction {
-  id        String   @id @default(uuid())
-  from      String
-  to        String
-  user      User     @relation(fields: [to], references: [id])
-  type      Int
-  value     Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(uuid())
+  senderId   String
+  receiverId String
+  type       Int
+  value      Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  sender   User @relation("sender", fields: [senderId], references: [id])
+  receiver User @relation("receiver", fields: [receiverId], references: [id])
 
   @@map("transactions")
 }
 
 model cards {
   id           String   @id @default(uuid())
-  number       BigInt
+  number       Decimal
   cvv          Int
   credit_limit Int      @default(0)
   type         Int
